@@ -4,6 +4,7 @@ import os
 import sys
 
 from appdirs import user_config_dir
+from datetime import datetime
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtGui import QKeySequence
@@ -102,6 +103,7 @@ class PyScreen(QWidget):
         self._add_simple_options()
         self._add_take_screen()
         self._init_shortcuts()
+        self.screen_name.setFocus()
 
     def pick_dir(self):
         dialog = QFileDialog()
@@ -118,15 +120,16 @@ class PyScreen(QWidget):
         self.current_row += 1
 
     def _add_define_name(self):
-        self.screen_name = QLineEdit("File name", self)
+        self.screen_name = QLineEdit(self)
+        self.screen_name.setPlaceholderText("File name")
         self.layout.addWidget(self.screen_name, self.current_row, 0)
         self.current_row += 1
 
     def _add_simple_options(self):
         self.exitonscreen = QRadioButton("Exit after screen")
+        self.exitonscreen.setChecked(self.config.exit_on_save)
         self.layout.addWidget(self.exitonscreen, self.current_row, 0)
         self.current_row += 1
-        pass
 
     def _add_take_screen(self):
         self.screenBtn = QPushButton('Screen', self)
@@ -141,29 +144,45 @@ class PyScreen(QWidget):
         shortcut = QShortcut(QKeySequence("Ctrl+Return"), self)
         shortcut.activated.connect(self.take_screenshot)
         shortcut = QShortcut(QKeySequence("Ctrl+s"), self)
-        shortcut.activated.connect(self.config.save)
+        shortcut.activated.connect(self._save_config)
+        QShortcut(QKeySequence('Return'),
+                  self.screen_name,
+                  self.take_screenshot)
 
     def take_screenshot(self):
+        self.hide()
         try:
             command = 'import -quality 60 {}.png'
-            full_path = self.folder_path.text()
-            name = self.screen_name.text()
-            name = name.replace(' ', '_')
-            full_path = os.path.join(full_path, name)
+            full_path = self._make_filename()
             check_output(command.format(full_path), stderr=STDOUT, shell=True)
+            if self.exitonscreen.isChecked():
+                self._exit()
         except CalledProcessError as e:
             p = PopUp(self)
             p.setText(e.output)
             p.setWindowTitle("Import Error!")
             p.show()
+        self.show()
+
+    def _make_filename(self):
+        full_path = self.folder_path.text()
+        name = self.screen_name.text().strip()
+        if len(name) == 0:
+            now = datetime.now()
+            name = now.strftime("Screenshot_%Y%m%d_%H%M%S")
+        name = name.replace(' ', '_')
+        full_path = os.path.join(full_path, name)
+        return full_path
 
     def _exit(self):
-        self.config.save()
+        self._save_config()
         self.close()
+        sys.exit(0)
 
     def _save_config(self):
-        # exit_on_save = self.exit_on_save
-        pass
+        self.config.exit_on_save = self.exitonscreen.isChecked()
+        self.config.save_directory = str(self.folder_path.text())
+        self.config.save()
 
 
 class PopUp(QDialog):
