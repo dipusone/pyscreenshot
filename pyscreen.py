@@ -144,6 +144,8 @@ class PyScreen(QWidget):
     def _init_shortcuts(self):
         shortcut = QShortcut(QKeySequence("Ctrl+Return"), self)
         shortcut.activated.connect(self.take_screenshot)
+        shortcut = QShortcut(QKeySequence("Ctrl+q"), self)
+        shortcut.activated.connect(self._exit)
         shortcut = QShortcut(QKeySequence("Ctrl+s"), self)
         shortcut.activated.connect(self._save_config)
         QShortcut(QKeySequence('Return'),
