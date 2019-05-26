@@ -4,23 +4,20 @@ import os
 import sys
 
 from appdirs import user_config_dir
-from os.path import expanduser
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtGui import QKeySequence
-from subprocess import check_call, CalledProcessError
-
+from subprocess import check_output, CalledProcessError, STDOUT
 
 
 class Configuration(object):
     CONFIG_FILE_NAME = 'pyscreen.ini'
     DEFAULT_CATEGORY = 'DEFAULT'
-    FILTER_SECTION = 'save_dir'
-    DESC_FILTER_KEY = 'format'
-    AUTO_SAVE_FILTERS = 'close_on_save'
+    SAVE_DIRECTORY_KEY = 'save_dir'
+    EXIT_ON_SAVE_KEY = 'close_on_save'
 
-    DEFAULT_CLOSE_ON_SAVE = False
-    DEFAULT_SAVE_DIR = '/tmp/'
+    DEFAULT_EXIT_ON_SAVE = False
+    DEFAULT_SAVE_DIR = ''
 
     def __init__(self, config_file=None):
         self.config = configparser.ConfigParser()
@@ -65,11 +62,33 @@ class Configuration(object):
     def sections():
         return [Configuration.DEFAULT_CATEGORY]
 
+    @property
+    def exit_on_save(self):
+        return self._get_simple_value(self.EXIT_ON_SAVE_KEY,
+                                      self.DEFAULT_EXIT_ON_SAVE)
+
+    @exit_on_save.setter
+    def exit_on_save(self, value):
+        self._set_simple_value(self.EXIT_ON_SAVE_KEY, value)
+
+    @property
+    def save_directory(self):
+        return self._get_simple_value(self.SAVE_DIRECTORY_KEY,
+                                      self.DEFAULT_SAVE_DIR)
+
+    @save_directory.setter
+    def save_directory(self, value):
+        if not isinstance(value, str):
+            raise TypeError('Alert file must be a string')
+        self._set_simple_value(self.SAVE_DIRECTORY_KEY, value)
+
 
 class PyScreen(QWidget):
 
     def __init__(self):
         super(PyScreen, self).__init__()
+        self.config = Configuration()
+        self.config.load()
         self.layout = QGridLayout()
         self.current_row = 0
         self.initUI()
@@ -90,8 +109,7 @@ class PyScreen(QWidget):
         self.folder_path.setText(folder_path)
 
     def _add_select_dir(self):
-        self.folder_path = QLineEdit('Destination Directory', self)
-        # self.label.adjustSize()
+        self.folder_path = QLineEdit(self.config.save_directory, self)
         self.dirBtn = QPushButton('Dir', self)
         self.dirBtn.clicked.connect(self.pick_dir)
         self.dirBtn.adjustSize()
@@ -122,6 +140,8 @@ class PyScreen(QWidget):
     def _init_shortcuts(self):
         shortcut = QShortcut(QKeySequence("Ctrl+Return"), self)
         shortcut.activated.connect(self.take_screenshot)
+        shortcut = QShortcut(QKeySequence("Ctrl+s"), self)
+        shortcut.activated.connect(self.config.save)
 
     def take_screenshot(self):
         try:
@@ -130,18 +150,20 @@ class PyScreen(QWidget):
             name = self.screen_name.text()
             name = name.replace(' ', '_')
             full_path = os.path.join(full_path, name)
-            check_call(command.format(full_path), shell=True)
+            check_output(command.format(full_path), stderr=STDOUT, shell=True)
         except CalledProcessError as e:
             p = PopUp(self)
-            p.setText(e.message)
+            p.setText(e.output)
+            p.setWindowTitle("Import Error!")
             p.show()
 
     def _exit(self):
+        self.config.save()
         self.close()
 
-    def _init_config(self):
-        self.config = Configuration()
-        self.config.load()
+    def _save_config(self):
+        # exit_on_save = self.exit_on_save
+        pass
 
 
 class PopUp(QDialog):
