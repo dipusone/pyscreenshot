@@ -136,7 +136,7 @@ class PyScreen(QWidget):
         self.screenBtn = QPushButton('Take Screenshot', self)
         self.screenBtn.clicked.connect(self.take_screenshot)
         self.exitBtn = QPushButton('Exit', self)
-        self.exitBtn.clicked.connect(self.close)
+        self.exitBtn.clicked.connect(self._exit)
         self.layout.addWidget(self.screenBtn, self.current_row, 0)
         self.layout.addWidget(self.exitBtn, self.current_row, 1)
         self.current_row += 1
