@@ -189,7 +189,7 @@ class PyScreen(QWidget):
             check_output(command.format(full_path), stderr=STDOUT, shell=True)
             if self.exitonscreen.isChecked():
                 self._exit()
-        except Exception as e:
+        except CalledProcessError as e:
             p = PopUp(self)
             p.setText(e.output)
             p.setWindowTitle("Import Error!")
