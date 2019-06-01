@@ -7,7 +7,7 @@ import sys
 from appdirs import user_config_dir
 from datetime import datetime
 from PyQt5.QtWidgets import *
-from PyQt5.QtCore import pyqtSlot
+from PyQt5.QtCore import pyqtSlot, QStringListModel
 from PyQt5.QtGui import QKeySequence
 from subprocess import check_output, CalledProcessError, STDOUT
 
@@ -16,10 +16,16 @@ class Configuration(object):
     CONFIG_FILE_NAME = 'pyscreen.ini'
     DEFAULT_CATEGORY = 'DEFAULT'
     SAVE_DIRECTORY_KEY = 'save_dir'
+    SCREENSHOT_COMMAND_KEY = 'command'
     EXIT_ON_SAVE_KEY = 'close_on_save'
+    HISTORY_KEY = 'history'
+    HISTORY_LEN_KEY = 'history_len'
 
     DEFAULT_EXIT_ON_SAVE = False
     DEFAULT_SAVE_DIR = ''
+    DEFAULT_HISTORY = []
+    DEFAULT_HISTORY_LEN = 30
+    DEFAULT_COMMAND = 'import -quality 60 {}.png'
 
     def __init__(self, config_file=None):
         self.config = configparser.ConfigParser()
@@ -31,14 +37,9 @@ class Configuration(object):
 
     def _get_simple_value(self, label, default_return=''):
         if label not in self.config[self.DEFAULT_CATEGORY]:
+            self._set_simple_value(label, default_return)
             return default_return
         return json.loads(self.config[self.DEFAULT_CATEGORY][label])
-
-    def _set_filters(self, label, filters):
-        self._set_list_value(self.FILTER_SECTION, label, filters)
-
-    def _get_filters(self, label):
-        return self._get_list_value(self.FILTER_SECTION, label)
 
     def _set_list_value(self, key, label, values):
         if not isinstance(values, list):
@@ -84,6 +85,29 @@ class Configuration(object):
             raise TypeError('Alert file must be a string')
         self._set_simple_value(self.SAVE_DIRECTORY_KEY, value)
 
+    @property
+    def history(self):
+        return self._get_list_value(self.DEFAULT_CATEGORY,
+                                    self.HISTORY_KEY)
+
+    @history.setter
+    def history(self, values):
+        if len(values) > self.history_size:
+            values = values[len(values) - self.history_size:]
+        return self._set_list_value(self.DEFAULT_CATEGORY,
+                                    self.HISTORY_KEY,
+                                    values)
+
+    @property
+    def history_size(self):
+        return self._get_simple_value(self.HISTORY_LEN_KEY,
+                                      self.DEFAULT_HISTORY_LEN)
+
+    @property
+    def command(self):
+        return self._get_simple_value(self.SCREENSHOT_COMMAND_KEY,
+                                      self.DEFAULT_COMMAND)
+
 
 class PyScreen(QWidget):
 
@@ -93,6 +117,7 @@ class PyScreen(QWidget):
         self.config.load()
         self.layout = QGridLayout()
         self.current_row = 0
+        self.screenshot_format = "Screenshot_%Y%m%d_%H%M%S"
         self.initUI()
 
     def initUI(self):
@@ -122,6 +147,9 @@ class PyScreen(QWidget):
 
     def _add_define_name(self):
         self.screen_name = QLineEdit(self)
+        self.history_model = QStringListModel(self.config.history, self)
+        self.completer = QCompleter(self.history_model, self)
+        self.screen_name.setCompleter(self.completer)
         self.screen_name.setPlaceholderText("File name")
         self.layout.addWidget(self.screen_name, self.current_row, 0)
         self.current_row += 1
@@ -155,27 +183,35 @@ class PyScreen(QWidget):
     def take_screenshot(self):
         self.hide()
         try:
-            command = 'import -quality 60 {}.png'
-            full_path = self._make_filename()
+            command = self.config.command
+            full_path, name = self._make_filename()
+            self._update_history(name)
             check_output(command.format(full_path), stderr=STDOUT, shell=True)
             if self.exitonscreen.isChecked():
                 self._exit()
-        except CalledProcessError as e:
+        except Exception as e:
             p = PopUp(self)
             p.setText(e.output)
             p.setWindowTitle("Import Error!")
             p.show()
         self.show()
 
+    def _update_history(self, element):
+        history = self.config.history
+        if element not in history:
+            history.append(element)
+        self.config.history = history
+        self.history_model.setStringList(self.config.history)
+
     def _make_filename(self):
         full_path = self.folder_path.text()
         name = self.screen_name.text().strip()
         if len(name) == 0:
             now = datetime.now()
-            name = now.strftime("Screenshot_%Y%m%d_%H%M%S")
+            name = now.strftime(self.screenshot_format)
         name = name.replace(' ', '_')
         full_path = os.path.join(full_path, name)
-        return full_path
+        return full_path, name
 
     def _exit(self):
         self._save_config()
