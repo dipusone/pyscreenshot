@@ -30,7 +30,7 @@ class Configuration(object):
     DEFAULT_SCREENSHOT_FORMAT = "Screenshot_%Y%m%d_%H%M%S"
 
     def __init__(self, config_file=None):
-        self.config = configparser.ConfigParser()
+        self.config = configparser.RawConfigParser()
         self.config_path = config_file or user_config_dir(self.CONFIG_FILE_NAME)
         self.load()
 
@@ -112,7 +112,8 @@ class Configuration(object):
 
     @property
     def screenshot_format(self):
-        return self.DEFAULT_SCREENSHOT_FORMAT
+        return self._get_simple_value(self.SCREENSHOT_FORMAT_KEY,
+                                      self.DEFAULT_SCREENSHOT_FORMAT)
 
 
 class PyScreen(QWidget):
