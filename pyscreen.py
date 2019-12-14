@@ -20,12 +20,14 @@ class Configuration(object):
     EXIT_ON_SAVE_KEY = 'close_on_save'
     HISTORY_KEY = 'history'
     HISTORY_LEN_KEY = 'history_len'
+    SCREENSHOT_FORMAT_KEY = 'screenshot_format'
 
     DEFAULT_EXIT_ON_SAVE = False
     DEFAULT_SAVE_DIR = ''
     DEFAULT_HISTORY = []
     DEFAULT_HISTORY_LEN = 30
     DEFAULT_COMMAND = 'import -quality 60 {}.png'
+    DEFAULT_SCREENSHOT_FORMAT = "Screenshot_%Y%m%d_%H%M%S"
 
     def __init__(self, config_file=None):
         self.config = configparser.ConfigParser()
@@ -82,7 +84,7 @@ class Configuration(object):
     @save_directory.setter
     def save_directory(self, value):
         if not isinstance(value, str):
-            raise TypeError('Alert file must be a string')
+            raise TypeError('Destination directory must be a string')
         self._set_simple_value(self.SAVE_DIRECTORY_KEY, value)
 
     @property
@@ -108,6 +110,10 @@ class Configuration(object):
         return self._get_simple_value(self.SCREENSHOT_COMMAND_KEY,
                                       self.DEFAULT_COMMAND)
 
+    @property
+    def screenshot_format(self):
+        return self.DEFAULT_SCREENSHOT_FORMAT
+
 
 class PyScreen(QWidget):
 
@@ -117,7 +123,6 @@ class PyScreen(QWidget):
         self.config.load()
         self.layout = QGridLayout()
         self.current_row = 0
-        self.screenshot_format = "Screenshot_%Y%m%d_%H%M%S"
         self.initUI()
 
     def initUI(self):
@@ -189,9 +194,9 @@ class PyScreen(QWidget):
             check_output(command.format(full_path), stderr=STDOUT, shell=True)
             if self.exitonscreen.isChecked():
                 self._exit()
-        except CalledProcessError as e:
+        except (CalledProcessError, ValueError) as e:
             p = PopUp(self)
-            p.setText(e.output)
+            p.setText(str(e))
             p.setWindowTitle("Import Error!")
             p.show()
         self.show()
@@ -208,7 +213,7 @@ class PyScreen(QWidget):
         name = self.screen_name.text().strip()
         if len(name) == 0:
             now = datetime.now()
-            name = now.strftime(self.screenshot_format)
+            name = now.strftime(self.config.screenshot_format.encode('ascii'))
         name = name.replace(' ', '_')
         full_path = os.path.join(full_path, name)
         return full_path, name
