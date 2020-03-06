@@ -139,7 +139,10 @@ class PyScreen(QWidget):
 
     def pick_dir(self):
         dialog = QFileDialog()
-        folder_path = dialog.getExistingDirectory(None, "Select Folder")
+        curr_dir = self.folder_path.text() or '~'
+        folder_path = dialog.getExistingDirectory(None,
+                                                  "Select Folder",
+                                                  directory=curr_dir)
         self.folder_path.setText(folder_path)
 
     def _add_select_dir(self):
