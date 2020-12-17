@@ -195,7 +195,7 @@ class PyScreen(QWidget):
             command = self.config.command
             full_path, name = self._make_filename()
             self._update_history(name)
-            check_output(command.format(full_path), stderr=STDOUT, shell=True)
+            check_output(command.format(full_path).split(), stderr=STDOUT)
             if self.exitonscreen.isChecked():
                 self._exit()
         except (CalledProcessError, ValueError) as e:
@@ -208,7 +208,7 @@ class PyScreen(QWidget):
     def _update_history(self, element):
         history = self.config.history
         if element not in history:
-            history.append(element)
+            history.insert(0, element)
         self.config.history = history
         self.history_model.setStringList(self.config.history)
 
