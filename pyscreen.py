@@ -95,7 +95,7 @@ class Configuration(object):
     @history.setter
     def history(self, values):
         if len(values) > self.history_size:
-            values = values[len(values) - self.history_size:]
+            values = values[:self.history_size]
         return self._set_list_value(self.DEFAULT_CATEGORY,
                                     self.HISTORY_KEY,
                                     values)
